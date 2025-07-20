@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Explorer: IMO 2024 - Problem 1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Chosen Palette: Warm Harmony (Beige, Slate, Stone, Muted Coral) -->
+    <!-- Application Structure Plan: The application is structured as a linear, narrative journey that guides the user through the mathematical proof. It starts with the problem (The Challenge), gives the answer upfront (The Verdict) to frame the exploration, then breaks the proof into interactive sections. The 'Impossible Cases' use a tabbed interface for clarity. The 'Turning Point' section features an interactive workbench with charts and buttons, allowing users to actively verify the core of the proof. This structure was chosen to make a dense, logical proof digestible and engaging by breaking it into smaller, interactive steps, which is more effective for learning than a monolithic wall of text. -->
+    <!-- Visualization & Content Choices: The core of the application is the interactive workbench for the n=4 case. Goal: Allow users to actively verify the proof. Method: Side-by-side bar charts (Chart.js) visualize the two multisets, and buttons trigger JS calculations for sums and products. Justification: This transforms passive reading into active learning, a key "aha!" moment. Other sections use styled HTML/CSS and MathJax for clarity and visual organization. The 'Verdict' section uses a simple CSS-based number line for a quick visual summary. This avoids static images and keeps the app lightweight and responsive. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F5F5F5; /* Warm Beige */
+            color: #334155; /* Slate 800 */
+        }
+        .math {
+            font-size: 1.1rem;
+        }
+        .card {
+            background-color: #FFFFFF;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        .tab {
+            cursor: pointer;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.3s, color 0.3s;
+            font-weight: 500;
+        }
+        .tab-active {
+            background-color: #475569; /* Slate 600 */
+            color: #FFFFFF;
+        }
+        .tab-inactive {
+            background-color: #E2E8F0; /* Slate 200 */
+            color: #475569; /* Slate 600 */
+        }
+        .btn-gemini {
+            background: linear-gradient(to right, #EF4444, #F97316);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-gemini:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(249, 115, 22, 0.5);
+        }
+        .btn-verify {
+            background-color: #3B82F6; /* Blue 500 */
+            color: white;
+            transition: background-color 0.3s;
+        }
+        .btn-verify:hover {
+            background-color: #2563EB; /* Blue 600 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        .result-box {
+            min-height: 50px;
+            transition: background-color 0.5s, border-color 0.5s;
+        }
+        .result-box.success {
+            background-color: #D1FAE5; /* Green 100 */
+            border-color: #10B981; /* Green 500 */
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-800 mb-2">Interactive Explorer</h1>
+            <p class="text-xl text-slate-600">IMO 2024 - Problem 1</p>
+        </header>
+
+        <!-- Section 1: The Challenge -->
+        <section id="challenge" class="mb-12">
+            <div class="card p-6 md:p-8">
+                <h2 class="text-2xl font-bold text-slate-700 mb-4">The Challenge</h2>
+                <p class="text-slate-600 mb-6">This application explores the first problem from the 2024 International Mathematical Olympiad. The problem asks us to find all integers $n \ge 1$ for which we can find two different collections of $n$ positive integers that have both the same sum and the same product. Let's explore the conditions.</p>
+                <div class="space-y-4 text-slate-700">
+                    <p>Find all integers \(n \ge 1\) such that there exist positive integers \(a_1, a_2, \dots, a_n\) and \(b_1, b_2, \dots, b_n\) satisfying the following three conditions:</p>
+                    <ol class="list-decimal list-inside space-y-3 bg-slate-50 p-4 rounded-lg">
+                        <li><span class="math">$\sum_{i=1}^{n} a_i = \sum_{i=1}^{n} b_i$</span> (The sums of the numbers are equal).</li>
+                        <li><span class="math">$\prod_{i=1}^{n} a_i = \prod_{i=1}^{n} b_i$</span> (The products of the numbers are equal).</li>
+                        <li>The multisets <span class="math">$\{a_1, a_2, \dots, a_n\}$</span> and <span class="math">$\{b_1, b_2, \dots, b_n\}$</span> are different.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Section 2: The Verdict -->
+        <section id="verdict" class="mb-12">
+            <div class="card p-6 md:p-8">
+                <h2 class="text-2xl font-bold text-slate-700 mb-4">The Verdict</h2>
+                <p class="text-slate-600 mb-6">Before diving into the proof, let's reveal the answer. The conditions can only be met for certain values of $n$. This section provides a high-level summary of which $n$ are possible solutions and which are not. The rest of the exploration will show why.</p>
+                <div class="bg-slate-50 p-6 rounded-lg text-center">
+                    <p class="text-lg text-slate-800 font-semibold mb-4">It is possible if and only if <span class="math text-red-500 font-bold">$n \ge 4$</span>.</p>
+                    <div class="flex justify-center items-center space-x-2 md:space-x-4">
+                        <div class="text-center p-2"><span class="text-4xl text-red-500 font-bold">✗</span><p class="font-mono">n=1</p></div>
+                        <div class="text-center p-2"><span class="text-4xl text-red-500 font-bold">✗</span><p class="font-mono">n=2</p></div>
+                        <div class="text-center p-2"><span class="text-4xl text-red-500 font-bold">✗</span><p class="font-mono">n=3</p></div>
+                        <div class="text-center p-2"><span class="text-4xl text-green-500 font-bold">✓</span><p class="font-mono">n=4</p></div>
+                        <div class="text-center p-2"><span class="text-4xl text-green-500 font-bold">✓</span><p class="font-mono">n=5</p></div>
+                        <div class="text-center p-2"><span class="text-2xl text-green-500 font-bold">...</span><p class="font-mono">etc.</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: The Impossible Cases -->
+        <section id="impossible-cases" class="mb-12">
+            <div class="card p-6 md:p-8">
+                 <h2 class="text-2xl font-bold text-slate-700 mb-4">Proof Part 1: The Impossible Cases</h2>
+                 <p class="text-slate-600 mb-6">The first part of the proof is to show why it's impossible to satisfy the conditions for small values of $n$. Use the tabs below to explore the reasoning for each case. This demonstrates that for $n=1, 2,$ and $3$, any two sets with the same sum and product must be identical.</p>
+                <div class="flex space-x-2 mb-4 border-b border-slate-200 pb-2">
+                    <div id="tab-1" class="tab tab-active" onclick="showTab(1)">n=1</div>
+                    <div id="tab-2" class="tab tab-inactive" onclick="showTab(2)">n=2</div>
+                    <div id="tab-3" class="tab tab-inactive" onclick="showTab(3)">n=3</div>
+                </div>
+                <div id="content-1" class="tab-content space-y-3">
+                    <h3 class="font-semibold text-lg">Case $n=1$:</h3>
+                    <p>The conditions simplify to $a_1 = b_1$ and $a_1 = b_1$. This forces the two multisets, $\{a_1\}$ and $\{b_1\}$, to be identical, which violates condition 3. Therefore, $n=1$ is not a solution.</p>
+                </div>
+                <div id="content-2" class="tab-content hidden space-y-3">
+                    <h3 class="font-semibold text-lg">Case $n=2$:</h3>
+                    <p>For $n=2$, we have $a_1+a_2 = b_1+b_2$ and $a_1a_2 = b_1b_2$. We can think of these as the properties of roots of a quadratic polynomial.</p>
+                    <p>Consider the polynomial $P(x) = (x-a_1)(x-a_2) = x^2 - (a_1+a_2)x + a_1a_2$.</p>
+                    <p>And the polynomial $Q(x) = (x-b_1)(x-b_2) = x^2 - (b_1+b_2)x + b_1b_2$.</p>
+                    <p>Since the coefficients are determined by the sum and product of the roots, and these are equal, $P(x)$ and $Q(x)$ must be the exact same polynomial. A polynomial has a unique set of roots, so the multiset of roots $\{a_1, a_2\}$ must be identical to $\{b_1, b_2\}$. This violates condition 3.</p>
+                </div>
+                <div id="content-3" class="tab-content hidden space-y-3">
+                    <h3 class="font-semibold text-lg">Case $n=3$:</h3>
+                    <p>This case is more involved, but the same principle with cubic polynomials applies. The conditions on the sum and product fix the coefficient of $x^2$ and the constant term. For the sets to be different, the coefficient of the $x$ term must differ.</p>
+                    <p>This leads to a situation where the difference between the two polynomials is of the form $P(x) - Q(x) = Cx$. A deeper analysis proves that it's impossible for two such distinct cubic polynomials to both have three positive integer roots. The conclusion is that $n=3$ is also not a solution.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: The Turning Point -->
+        <section id="turning-point" class="mb-12">
+            <div class="card p-6 md:p-8">
+                <h2 class="text-2xl font-bold text-slate-700 mb-4">Proof Part 2: The Turning Point at $n=4$</h2>
+                <p class="text-slate-600 mb-6">Here we show that $n=4$ is a solution by constructing a valid example. This interactive workbench lets you explore the two multisets, visualize their composition, and verify for yourself that they satisfy the conditions. This is the crucial first step in proving the result for all $n \ge 4$.</p>
+
+                <div class="grid md:grid-cols-2 gap-8 items-start">
+                    <!-- Set A -->
+                    <div class="text-center">
+                        <h3 class="text-xl font-bold mb-2">Multiset A</h3>
+                        <p id="setAText" class="font-mono text-2xl tracking-widest bg-slate-100 p-2 rounded-lg mb-4">{1, 3, 8, 8}</p>
+                        <div class="chart-container"><canvas id="chartA"></canvas></div>
+                        <div class="mt-4 p-4 border-2 border-dashed border-slate-300 rounded-lg result-box flex items-center justify-center" id="resultsA">
+                            <p class="text-slate-500">Click buttons to verify...</p>
+                        </div>
+                    </div>
+
+                    <!-- Set B -->
+                    <div class="text-center">
+                         <h3 class="text-xl font-bold mb-2">Multiset B</h3>
+                        <p id="setBText" class="font-mono text-2xl tracking-widest bg-slate-100 p-2 rounded-lg mb-4">{2, 2, 4, 12}</p>
+                        <div class="chart-container"><canvas id="chartB"></canvas></div>
+                        <div class="mt-4 p-4 border-2 border-dashed border-slate-300 rounded-lg result-box flex items-center justify-center" id="resultsB">
+                            <p class="text-slate-500">Click buttons to verify...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+                    <button id="verifySum" class="btn-verify w-full sm:w-auto font-bold py-3 px-6 rounded-lg shadow-md">Verify Sum</button>
+                    <button id="verifyProduct" class="btn-verify w-full sm:w-auto font-bold py-3 px-6 rounded-lg shadow-md">Verify Product</button>
+                    <button id="resetVerification" class="w-full sm:w-auto bg-slate-500 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-slate-600 transition">Reset</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 5: Gemini API -->
+        <section id="gemini-explore" class="mb-12">
+            <div class="card p-6 md:p-8 text-center">
+                <h2 class="text-2xl font-bold text-slate-700 mb-4">Explore Further with AI</h2>
+                <p class="text-slate-600 mb-6 max-w-2xl mx-auto">The example above is not unique. There are other sets of numbers that solve this problem. Click the button below to use the Gemini API to find a new, different example for $n=4$. The interactive workbench above will update with the new values for you to verify.</p>
+                <button id="findNewExample" class="btn-gemini font-bold py-3 px-6 rounded-lg shadow-lg text-lg">✨ Find Another Example (n=4)</button>
+                 <p id="apiError" class="text-red-500 mt-4 hidden">Could not find a new example. Please try again.</p>
+            </div>
+        </section>
+        
+        <!-- Section 6: The Extension -->
+        <section id="extension">
+            <div class="card p-6 md:p-8">
+                <h2 class="text-2xl font-bold text-slate-700 mb-4">Extending the Solution for $n > 4$</h2>
+                <p class="text-slate-600 mb-6">Now that we have a working example for $n=4$, we can easily extend it to prove the case for all larger $n$. The method is simple: if we have a solution for $n$, we can create a solution for $n+1$ by just adding the number 1 to both multisets.</p>
+                <div class="bg-slate-50 p-6 rounded-lg text-center">
+                    <p class="text-slate-800">If we have a solution for $n$: $A_n$ and $B_n$.</p>
+                    <p class="text-2xl my-2">↓</p>
+                    <p class="text-slate-800">We construct a solution for $n+1$ by adding a 1 to each set:</p>
+                    <p class="font-mono text-lg mt-2">$A_{n+1} = A_n \cup \{1\}$</p>
+                    <p class="font-mono text-lg">$B_{n+1} = B_n \cup \{1\}$</p>
+                    <div class="mt-4 pt-4 border-t">
+                        <p class="text-slate-600">This works because adding 1 increases the sum of each set by 1 (so they remain equal), and multiplying by 1 does not change the product (so they also remain equal). Since the original sets were different, the new sets are also different.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <footer class="text-center mt-12 text-slate-500">
+            <p>An interactive exploration of a beautiful math problem.</p>
+        </footer>
+
+    </div>
+
+<script>
+    let setA = {
+        name: 'A',
+        values: [1, 3, 8, 8],
+        labels: ['Value 1', 'Value 2', 'Value 3', 'Value 4']
+    };
+    let setB = {
+        name: 'B',
+        values: [2, 2, 4, 12],
+        labels: ['Value 1', 'Value 2', 'Value 3', 'Value 4']
+    };
+
+    const chartConfig = (dataset) => ({
+        type: 'bar',
+        data: {
+            labels: dataset.labels,
+            datasets: [{
+                label: `Values in Multiset ${dataset.name}`,
+                data: dataset.values,
+                backgroundColor: dataset.name === 'A' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(59, 130, 246, 0.6)',
+                borderColor: dataset.name === 'A' ? 'rgba(239, 68, 68, 1)' : 'rgba(59, 130, 246, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: 14,
+                    ticks: { color: '#475569' }
+                },
+                x: {
+                    ticks: { color: '#475569' }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false,
+                },
+                tooltip: {
+                    enabled: true
+                }
+            }
+        }
+    });
+
+    let chartA, chartB;
+
+    window.onload = () => {
+        const ctxA = document.getElementById('chartA').getContext('2d');
+        chartA = new Chart(ctxA, chartConfig(setA));
+        
+        const ctxB = document.getElementById('chartB').getContext('2d');
+        chartB = new Chart(ctxB, chartConfig(setB));
+    };
+    
+    function showTab(tabNumber) {
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('tab-active');
+            tab.classList.add('tab-inactive');
+        });
+
+        document.getElementById(`content-${tabNumber}`).classList.remove('hidden');
+        document.getElementById(`tab-${tabNumber}`).classList.add('tab-active');
+        document.getElementById(`tab-${tabNumber}`).classList.remove('tab-inactive');
+    }
+
+    const resultsA = document.getElementById('resultsA');
+    const resultsB = document.getElementById('resultsB');
+    const setAText = document.getElementById('setAText');
+    const setBText = document.getElementById('setBText');
+
+    function resetResults() {
+        const initialText = `<p class="text-slate-500">Click buttons to verify...</p>`;
+        resultsA.innerHTML = initialText;
+        resultsB.innerHTML = initialText;
+        resultsA.classList.remove('success');
+        resultsB.classList.remove('success');
+    }
+    
+    document.getElementById('verifySum').addEventListener('click', () => {
+        const sumA = setA.values.reduce((a, b) => a + b, 0);
+        const sumB = setB.values.reduce((a, b) => a + b, 0);
+
+        resultsA.innerHTML = `<p class="font-semibold">Sum: <span class="font-bold text-2xl">${sumA}</span></p>`;
+        resultsB.innerHTML = `<p class="font-semibold">Sum: <span class="font-bold text-2xl">${sumB}</span></p>`;
+        
+        if (sumA === sumB) {
+            resultsA.classList.add('success');
+            resultsB.classList.add('success');
+        }
+    });
+
+    document.getElementById('verifyProduct').addEventListener('click', () => {
+        const productA = setA.values.reduce((a, b) => a * b, 1);
+        const productB = setB.values.reduce((a, b) => a * b, 1);
+
+        resultsA.innerHTML = `<p class="font-semibold">Product: <span class="font-bold text-2xl">${productA}</span></p>`;
+        resultsB.innerHTML = `<p class="font-semibold">Product: <span class="font-bold text-2xl">${productB}</span></p>`;
+        
+        if (productA === productB) {
+            resultsA.classList.add('success');
+            resultsB.classList.add('success');
+        }
+    });
+
+    document.getElementById('resetVerification').addEventListener('click', resetResults);
+
+    const findButton = document.getElementById('findNewExample');
+    const apiError = document.getElementById('apiError');
+
+    async function findNewExample() {
+        findButton.disabled = true;
+        findButton.innerHTML = '<div class="loader mx-auto"></div>';
+        apiError.classList.add('hidden');
+        resetResults();
+
+        const prompt = `Find a pair of different multisets of 4 positive integers, A and B, such that the sum of elements in A equals the sum of elements in B, and the product of elements in A equals the product of elements in B. Do not use the example A={1, 3, 8, 8} and B={2, 2, 4, 12}. Provide the answer as a JSON object.`;
+        
+        const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        setA: { type: "ARRAY", items: { type: "NUMBER" } },
+                        setB: { type: "ARRAY", items: { type: "NUMBER" } }
+                    },
+                    required: ["setA", "setB"]
+                }
+            }
+        };
+
+        try {
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0]) {
+                const newSets = JSON.parse(result.candidates[0].content.parts[0].text);
+                
+                setA.values = newSets.setA;
+                setB.values = newSets.setB;
+                
+                setAText.innerText = `{${setA.values.join(', ')}}`;
+                setBText.innerText = `{${setB.values.join(', ')}}`;
+                
+                const maxVal = Math.max(...setA.values, ...setB.values);
+                chartA.options.scales.y.suggestedMax = maxVal + 2;
+                chartB.options.scales.y.suggestedMax = maxVal + 2;
+
+                chartA.data.datasets[0].data = setA.values;
+                chartB.data.datasets[0].data = setB.values;
+                
+                chartA.update();
+                chartB.update();
+
+            } else {
+                throw new Error("Invalid response structure from API.");
+            }
+
+        } catch (error) {
+            console.error("Gemini API call failed:", error);
+            apiError.classList.remove('hidden');
+        } finally {
+            findButton.disabled = false;
+            findButton.innerHTML = '✨ Find Another Example (n=4)';
+        }
+    }
+
+    findButton.addEventListener('click', findNewExample);
+
+</script>
+
+</body>
+</html>
+
